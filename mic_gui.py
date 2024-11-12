@@ -171,7 +171,7 @@ class pulselistener:
 		self.values = []
 
 	def inframe(self, sample):
-		sampbool = sample<-0.06
+		sampbool = sample<-0.08
 		if sampbool:
 			if self.count: 
 				if self.count>200: 
