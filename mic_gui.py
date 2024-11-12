@@ -57,7 +57,7 @@ def gfx_init():
 gfx_init()
 
 # teddy_eye
-teddy_eye = np.zeros((100, 50, 3), dtype=np.uint8)
+teddy_eye = np.empty((100, 50, 3), dtype=np.uint8)
 gfx_drawsquare_color(teddy_eye, 0, 0, 100, 100, 169-10, 112-10, 67-10)
 gfx_drawsquare_color(teddy_eye, 48, 0, 2, 50, 0, 0, 0)
 gfx_drawsquare_color(teddy_eye, 50, 0, 50, 50, 200, 200, 200)
@@ -66,7 +66,7 @@ teddy_eye_gfx_base.gfx_drawsquare_color(teddy_eye, 0, 0, 35, 57*2, 16*2, 6*2)
 teddy_eye_gfx_base.gfx_drawsquare_color(teddy_eye, 0, 0, 20, 0, 0, 0)
 
 # grubby_eye
-grubby_eye = np.zeros((100, 50, 3), dtype=np.uint8)
+grubby_eye = np.empty((100, 50, 3), dtype=np.uint8)
 gfx_drawsquare_color(grubby_eye, 0, 0, 100, 100, 241, 196, 136)
 gfx_drawsquare_color(grubby_eye, 48, 0, 2, 50, 0, 0, 0)
 gfx_drawsquare_color(grubby_eye, 50, 0, 50, 50, 200, 200, 200)
@@ -116,14 +116,26 @@ g_mouthdown = valsmooth(0, 3)
 t_eyeout = valsmooth(0, 5)
 g_eyeout = valsmooth(0, 5)
 
+pan = 0
+
 def callback(values):
 	global finished
+	global pan
 	if len(values) >= 8:
 
 		outframe[:] = inframe[:]
 
+		mul = 1
+
 		for n, x in enumerate(values[0:8]):
 			gfx_drawblock(n, x)
+
+			x /= mul
+
+			if n == 0:
+				mul = x/56
+				#print(x, mul)
+
 			if n == 1:
 				eyeout = 100+((50-x)*4)
 				t_eyeout.set(max(0, min(eyeout, 50)))
@@ -134,7 +146,9 @@ def callback(values):
 			if n == 3: t_mouthdown.set(-(40-x)*2)
 
 			if n == 4:
-				focus_char.set(x-50)
+				pan = x-52
+				focus_char.set(pan)
+				pan /= 20
 
 			if n == 5:
 				eyeout = 100+((50-x)*4)
@@ -157,7 +171,7 @@ class pulselistener:
 		self.values = []
 
 	def inframe(self, sample):
-		sampbool = sample<-0.1
+		sampbool = sample<-0.06
 		if sampbool:
 			if self.count: 
 				if self.count>200: 
@@ -188,7 +202,15 @@ pl_obj = pulselistener()
 def print_sound(indata, outdata, inframes, time, status):
 	for l, r in indata:
 		pl_obj.inframe(r)
-	outdata[:, 1] = outdata[:, 0] = indata[:, 0]
+	#print(max(pan, 0), abs(min(pan, 0)))
+
+	teddy_mute = min(1, max(pan, 0))
+	grubby_mute = min(1, abs(min(pan, 0)))
+
+	l = indata[:, 0]*(1-grubby_mute)
+	r = indata[:, 0]*(1-teddy_mute)
+	outdata[:, 1] = l
+	outdata[:, 0] = r
 
 with sd.Stream(callback=print_sound):
     sd.sleep(10000000)
