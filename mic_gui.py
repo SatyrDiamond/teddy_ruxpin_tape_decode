@@ -8,6 +8,7 @@ sd.default.samplerate = 44100
 sd.default.channels = 2
 
 inframe = np.zeros((500, 1000, 3), dtype=np.uint8)
+outframe = np.zeros((500, 1000, 3), dtype=np.uint8)
 
 finished = False
 
@@ -97,7 +98,7 @@ def drawmouth_grubby(inframe, mouthup, mouthdown):
 for n in range(8):
 	gfx_drawblock(n, 0)
 
-outframe = np.copy(inframe)
+procframe = np.copy(inframe)
 
 class valsmooth:
 	def __init__(self, intval, smoth):
@@ -116,14 +117,14 @@ g_mouthdown = valsmooth(0, 3)
 t_eyeout = valsmooth(0, 5)
 g_eyeout = valsmooth(0, 5)
 
-pan = 0
+pan = valsmooth(0, 3)
 
 def callback(values):
 	global finished
 	global pan
 	if len(values) >= 8:
 
-		outframe[:] = inframe[:]
+		procframe[:] = inframe[:]
 
 		mul = 1
 
@@ -139,28 +140,31 @@ def callback(values):
 			if n == 1:
 				eyeout = 100+((50-x)*4)
 				t_eyeout.set(max(0, min(eyeout, 50)))
-				gfx_printimage(outframe, teddy_eye, 200-10, 80, 50, 50, int(t_eyeout.val), 0)
-				gfx_printimage(outframe, teddy_eye, 200-10, 170, 50, 50, int(t_eyeout.val), 0)
+				gfx_printimage(procframe, teddy_eye, 200-10, 80, 50, 50, int(t_eyeout.val), 0)
+				gfx_printimage(procframe, teddy_eye, 200-10, 170, 50, 50, int(t_eyeout.val), 0)
 
 			if n == 2: t_mouthup.set(-(50-x)*2)
 			if n == 3: t_mouthdown.set(-(40-x)*2)
 
 			if n == 4:
-				pan = x-52
-				focus_char.set(pan)
-				pan /= 20
+				dpan = x-52
+				focus_char.set(dpan)
+				dpan /= 20
+				pan.set(dpan)
 
 			if n == 5:
 				eyeout = 100+((50-x)*4)
 				g_eyeout.set(max(0, min(eyeout, 50)))
-				gfx_printimage(outframe, grubby_eye, 200-10, 700+80, 50, 50, int(g_eyeout.val), 0)
-				gfx_printimage(outframe, grubby_eye, 200-10, 700+170, 50, 50, int(g_eyeout.val), 0)
+				gfx_printimage(procframe, grubby_eye, 200-10, 700+80, 50, 50, int(g_eyeout.val), 0)
+				gfx_printimage(procframe, grubby_eye, 200-10, 700+170, 50, 50, int(g_eyeout.val), 0)
 			if n == 6: g_mouthup.set(-(50-x)*2)
 			if n == 7: g_mouthdown.set(-(40-x)*2)
 
-		drawmouth(outframe, -(int(t_mouthup.val)//6), (int(t_mouthdown.val)//2))
-		drawmouth_grubby(outframe, -(int(g_mouthup.val)//6), (int(g_mouthdown.val)//2))
-		gfx_drawsquare(outframe, 400, max(400+int(focus_char.val*18), 0), 50, 200, 200)
+		drawmouth(procframe, -(int(t_mouthup.val)//6), (int(t_mouthdown.val)//3))
+		drawmouth_grubby(procframe, -(int(g_mouthup.val)//6), (int(g_mouthdown.val)//3))
+		gfx_drawsquare(procframe, 400, max(400+int(focus_char.val*18), 0), 50, 200, 200)
+
+		outframe[:] = procframe[:]
 
 		finished = True
 
@@ -187,10 +191,10 @@ class pulselistener:
 
 def showvisual():
 	global finished
-	cv2.imshow('inframe', outframe)
+	cv2.imshow('inframe', procframe)
 	while True:
 		if finished: 
-			cv2.imshow('inframe', outframe)
+			cv2.imshow('inframe', procframe)
 			finished = False
 		cv2.waitKey(1)
 
@@ -204,8 +208,8 @@ def print_sound(indata, outdata, inframes, time, status):
 		pl_obj.inframe(r)
 	#print(max(pan, 0), abs(min(pan, 0)))
 
-	teddy_mute = min(1, max(pan, 0))
-	grubby_mute = min(1, abs(min(pan, 0)))
+	teddy_mute = min(1, max(pan.val, 0))
+	grubby_mute = min(1, abs(min(pan.val, 0)))
 
 	l = indata[:, 0]*(1-grubby_mute)
 	r = indata[:, 0]*(1-teddy_mute)
